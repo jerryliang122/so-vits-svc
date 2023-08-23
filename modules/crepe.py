@@ -174,10 +174,7 @@ class MaskedAvgPool1d(nn.Module):
         # Fill zero values with NaNs
         avg_pooled[avg_pooled == 0] = float("nan")
 
-        if ndim == 2:
-            return avg_pooled.squeeze(1)
-
-        return avg_pooled
+        return avg_pooled.squeeze(1) if ndim == 2 else avg_pooled
 
 
 class MaskedMedianPool1d(nn.Module):
@@ -245,11 +242,8 @@ class MaskedMedianPool1d(nn.Module):
 
         # Fill infinite values with NaNs
         median_pooled[torch.isinf(median_pooled)] = float("nan")
-        
-        if ndim == 2:
-            return median_pooled.squeeze(1)
 
-        return median_pooled
+        return median_pooled.squeeze(1) if ndim == 2 else median_pooled
 
 
 class CrepePitchExtractor(BasePitchExtractor):
@@ -316,7 +310,7 @@ class CrepePitchExtractor(BasePitchExtractor):
 
         pd = torchcrepe.threshold.Silence(-60.0)(pd, x, sampling_rate, 512)
         f0 = torchcrepe.threshold.At(self.threshold)(f0, pd)
-        
+
         if self.use_fast_filters:
             f0 = self.mean_filter(f0)
         else:
@@ -325,7 +319,7 @@ class CrepePitchExtractor(BasePitchExtractor):
         f0 = torch.where(torch.isnan(f0), torch.full_like(f0, 0), f0)[0]
 
         if torch.all(f0 == 0):
-            rtn = f0.cpu().numpy() if pad_to==None else np.zeros(pad_to)
+            rtn = f0.cpu().numpy() if pad_to is None else np.zeros(pad_to)
             return rtn,rtn
-        
+
         return self.post_process(x, sampling_rate, f0, pad_to)

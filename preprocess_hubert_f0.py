@@ -24,7 +24,7 @@ hop_length = hps.data.hop_length
 def process_one(filename, hmodel):
     # print(filename)
     wav, sr = librosa.load(filename, sr=sampling_rate)
-    soft_path = filename + ".soft.pt"
+    soft_path = f"{filename}.soft.pt"
     if not os.path.exists(soft_path):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         wav16k = librosa.resample(wav, orig_sr=sampling_rate, target_sr=16000)
@@ -32,7 +32,7 @@ def process_one(filename, hmodel):
         c = utils.get_hubert_content(hmodel, wav_16k_tensor=wav16k)
         torch.save(c.cpu(), soft_path)
 
-    f0_path = filename + ".f0.npy"
+    f0_path = f"{filename}.f0.npy"
     if not os.path.exists(f0_path):
         f0 = utils.compute_f0_dio(
             wav, sampling_rate=sampling_rate, hop_length=hop_length
@@ -47,11 +47,7 @@ def process_one(filename, hmodel):
 
         audio, sr = utils.load_wav_to_torch(filename)
         if sr != hps.data.sampling_rate:
-            raise ValueError(
-                "{} SR doesn't match target {} SR".format(
-                    sr, hps.data.sampling_rate
-                )
-            )
+            raise ValueError(f"{sr} SR doesn't match target {hps.data.sampling_rate} SR")
 
         audio_norm = audio / hps.data.max_wav_value
         audio_norm = audio_norm.unsqueeze(0)

@@ -143,10 +143,7 @@ class SineGen(torch.nn.Module):
         rad_values[:, 0, :] = rad_values[:, 0, :] + rand_ini
         is_half = rad_values.dtype is not torch.float32
         tmp_over_one = torch.cumsum(rad_values.double(), 1)  # % 1  #####%1 means the following cumsum can no longer be optimized
-        if is_half:
-            tmp_over_one = tmp_over_one.half()
-        else:
-            tmp_over_one = tmp_over_one.float()
+        tmp_over_one = tmp_over_one.half() if is_half else tmp_over_one.float()
         tmp_over_one *= upp
         tmp_over_one = F.interpolate(
             tmp_over_one.transpose(2, 1), scale_factor=upp,
@@ -160,10 +157,7 @@ class SineGen(torch.nn.Module):
         rad_values = rad_values.double()
         cumsum_shift = cumsum_shift.double()
         sine_waves = torch.sin(torch.cumsum(rad_values + cumsum_shift, dim=1) * 2 * np.pi)
-        if is_half:
-            sine_waves = sine_waves.half()
-        else:
-            sine_waves = sine_waves.float()
+        sine_waves = sine_waves.half() if is_half else sine_waves.float()
         sine_waves = sine_waves * self.sine_amp
         uv = self._f02uv(f0)
         uv = F.interpolate(uv.transpose(2, 1), scale_factor=upp, mode='nearest').transpose(2, 1)
@@ -208,8 +202,7 @@ class SourceModuleHnNSF(torch.nn.Module):
 
     def forward(self, x, upp):
         sine_wavs, uv, _ = self.l_sin_gen(x, upp)
-        sine_merge = self.l_tanh(self.l_linear(sine_wavs))
-        return sine_merge
+        return self.l_tanh(self.l_linear(sine_wavs))
 
 
 class Generator(torch.nn.Module):
@@ -240,9 +233,9 @@ class Generator(torch.nn.Module):
                 self.noise_convs.append(Conv1d(1, c_cur, kernel_size=1))
         self.resblocks = nn.ModuleList()
         ch = h.upsample_initial_channel
-        for i in range(len(self.ups)):
+        for _ in range(len(self.ups)):
             ch //= 2
-            for j, (k, d) in enumerate(zip(h.resblock_kernel_sizes, h.resblock_dilation_sizes)):
+            for k, d in zip(h.resblock_kernel_sizes, h.resblock_dilation_sizes):
                 self.resblocks.append(resblock(h, ch, k, d))
 
         self.conv_post = weight_norm(Conv1d(ch, 1, 7, 1, padding=3))
@@ -330,7 +323,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for i, d in enumerate(self.discriminators):
+        for d in self.discriminators:
             y_d_r, fmap_r = d(y)
             y_d_g, fmap_g = d(y_hat)
             y_d_rs.append(y_d_r)

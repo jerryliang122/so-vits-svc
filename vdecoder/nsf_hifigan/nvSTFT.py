@@ -79,35 +79,32 @@ class STFT():
         fmin       = self.fmin
         fmax       = self.fmax
         clip_val   = self.clip_val
-        
-        factor = 2 ** (keyshift / 12)       
+
+        factor = 2 ** (keyshift / 12)
         n_fft_new = int(np.round(n_fft * factor))
         win_size_new = int(np.round(win_size * factor))
         hop_length_new = int(np.round(hop_length * speed))
-        
+
         if torch.min(y) < -1.:
             print('min value is ', torch.min(y))
         if torch.max(y) > 1.:
             print('max value is ', torch.max(y))
-        
-        mel_basis_key = str(fmax)+'_'+str(y.device)
+
+        mel_basis_key = f'{str(fmax)}_{str(y.device)}'
         if mel_basis_key not in self.mel_basis:
             mel = librosa_mel_fn(sr=sampling_rate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
             self.mel_basis[mel_basis_key] = torch.from_numpy(mel).float().to(y.device)
-        
-        keyshift_key = str(keyshift)+'_'+str(y.device)
+
+        keyshift_key = f'{str(keyshift)}_{str(y.device)}'
         if keyshift_key not in self.hann_window:
             self.hann_window[keyshift_key] = torch.hann_window(win_size_new).to(y.device)
-        
+
         pad_left = (win_size_new - hop_length_new) //2
         pad_right = max((win_size_new- hop_length_new + 1) //2, win_size_new - y.size(-1) - pad_left)
-        if pad_right < y.size(-1):
-            mode = 'reflect'
-        else:
-            mode = 'constant'
+        mode = 'reflect' if pad_right < y.size(-1) else 'constant'
         y = torch.nn.functional.pad(y.unsqueeze(1), (pad_left, pad_right), mode = mode)
         y = y.squeeze(1)
-        
+
         spec = torch.stft(y, n_fft_new, hop_length=hop_length_new, win_length=win_size_new, window=self.hann_window[keyshift_key],
                           center=center, pad_mode='reflect', normalized=False, onesided=True, return_complex=False)
         # print(111,spec)
@@ -118,7 +115,7 @@ class STFT():
             if resize < size:
                 spec = F.pad(spec, (0, 0, 0, size-resize))
             spec = spec[:, :size, :] * win_size / win_size_new
-            
+
         # print(222,spec)
         spec = torch.matmul(self.mel_basis[mel_basis_key], spec)
         # print(333,spec)
@@ -128,7 +125,6 @@ class STFT():
     
     def __call__(self, audiopath):
         audio, sr = load_wav_to_torch(audiopath, target_sr=self.target_sr)
-        spect = self.get_mel(audio.unsqueeze(0)).squeeze(0)
-        return spect
+        return self.get_mel(audio.unsqueeze(0)).squeeze(0)
 
 stft = STFT()

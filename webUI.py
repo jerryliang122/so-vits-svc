@@ -41,7 +41,7 @@ if torch.cuda.is_available():
 
 def upload_mix_append_file(files,sfiles):
     try:
-        if(sfiles == None):
+        if sfiles is None:
             file_paths = [file.name for file in files]
         else:
             file_paths = [file.name for file in chain(files,sfiles)]
@@ -67,7 +67,7 @@ def mix_submit_click(js,mode):
 
 def updata_mix_info(files):
     try:
-        if files == None : return mix_model_output1.update(value="")
+        if files is None: return mix_model_output1.update(value="")
         p = {file.name:100 for file in files}
         return mix_model_output1.update(value=json.dumps(p,indent=2))
     except Exception as e:
@@ -88,7 +88,7 @@ def modelAnalysis(model_path,config_path,cluster_model_path,device,enhance):
             msg += f"聚类模型{cluster_model_path.name}加载成功\n"
         msg += "当前模型的可用音色：\n"
         for i in spks:
-            msg += i + " "
+            msg += f"{i} "
         return sid.update(choices = spks,value=spks[0]), msg
     except Exception as e:
         if debug: traceback.print_exc()
@@ -99,11 +99,10 @@ def modelUnload():
     global model
     if model is None:
         return sid.update(choices = [],value=""),"没有模型需要卸载!"
-    else:
-        model.unload_model()
-        model = None
-        torch.cuda.empty_cache()
-        return sid.update(choices = [],value=""),"模型卸载完毕!"
+    model.unload_model()
+    model = None
+    torch.cuda.empty_cache()
+    return sid.update(choices = [],value=""),"模型卸载完毕!"
 
 
 def vc_fn(sid, input_audio, vc_transform, auto_f0,cluster_ratio, slice_db, noise_scale,pad_seconds,cl_num,lg_num,lgr_num,F0_mean_pooling,enhancer_adaptive_key,cr_threshold):
@@ -126,32 +125,24 @@ def vc_fn(sid, input_audio, vc_transform, auto_f0,cluster_ratio, slice_db, noise
         #构建保存文件的路径，并保存到results文件夹内
         try:
             timestamp = str(int(time.time()))
-            filename = sid + "_" + timestamp + ".wav"
+            filename = f"{sid}_{timestamp}.wav"
             output_file = os.path.join("./results", filename)
             soundfile.write(output_file, _audio, model.target_sample, format="wav")
             return f"推理成功，音频文件保存为results/{filename}", (model.target_sample, _audio)
         except Exception as e:
             if debug: traceback.print_exc()
-            return f"文件保存失败，请手动保存", (model.target_sample, _audio)
+            return "文件保存失败，请手动保存", (model.target_sample, _audio)
     except Exception as e:
         if debug: traceback.print_exc()
         raise gr.Error(e)
 
 
 def tts_func(_text,_rate,_voice):
-    #使用edge-tts把文字转成音频
-    # voice = "zh-CN-XiaoyiNeural"#女性，较高音
-    # voice = "zh-CN-YunxiNeural"#男性
-    voice = "zh-CN-YunxiNeural"#男性
-    if ( _voice == "女" ) : voice = "zh-CN-XiaoyiNeural"
-    output_file = _text[0:10]+".wav"
+    voice = "zh-CN-XiaoyiNeural" if ( _voice == "女" ) else "zh-CN-YunxiNeural"
+    output_file = f"{_text[:10]}.wav"
     # communicate = edge_tts.Communicate(_text, voice)
     # await communicate.save(output_file)
-    if _rate>=0:
-        ratestr="+{:.0%}".format(_rate)
-    elif _rate<0:
-        ratestr="{:.0%}".format(_rate)#减号自带
-
+    ratestr = "+{:.0%}".format(_rate) if _rate>=0 else "{:.0%}".format(_rate)
     p=subprocess.Popen("edge-tts "+
                         " --text "+_text+
                         " --write-media "+output_file+
@@ -175,7 +166,7 @@ def vc_fn2(sid, input_audio, vc_transform, auto_f0,cluster_ratio, slice_db, nois
     sr2=44100
     wav, sr = librosa.load(output_file)
     wav2 = librosa.resample(wav, orig_sr=sr, target_sr=sr2)
-    save_path2= text2tts[0:10]+"_44k"+".wav"
+    save_path2 = f"{text2tts[:10]}_44k.wav"
     wavfile.write(save_path2,sr2,
                 (wav2 * np.iinfo(np.int16).max).astype(np.int16)
                 )

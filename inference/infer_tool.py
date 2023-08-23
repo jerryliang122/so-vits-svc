@@ -74,9 +74,11 @@ def get_end_file(dir_path, end):
     for root, dirs, files in os.walk(dir_path):
         files = [f for f in files if f[0] != '.']
         dirs[:] = [d for d in dirs if d[0] != '.']
-        for f_file in files:
-            if f_file.endswith(end):
-                file_lists.append(os.path.join(root, f_file).replace("\\", "/"))
+        file_lists.extend(
+            os.path.join(root, f_file).replace("\\", "/")
+            for f_file in files
+            if f_file.endswith(end)
+        )
     return file_lists
 
 
@@ -97,12 +99,10 @@ def pad_array(arr, target_length):
     current_length = arr.shape[0]
     if current_length >= target_length:
         return arr
-    else:
-        pad_width = target_length - current_length
-        pad_left = pad_width // 2
-        pad_right = pad_width - pad_left
-        padded_arr = np.pad(arr, (pad_left, pad_right), 'constant', constant_values=(0, 0))
-        return padded_arr
+    pad_width = target_length - current_length
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
+    return np.pad(arr, (pad_left, pad_right), 'constant', constant_values=(0, 0))
     
 def split_list_by_n(list_collection, n, pre=0):
     for i in range(0, len(list_collection), n):
@@ -216,7 +216,7 @@ class Svc(object):
                                                                         self.hps_ms.data.hop_length, 
                                                                         adaptive_key = enhancer_adaptive_key)
             use_time = time.time() - start
-            print("vits use time:{}".format(use_time))
+            print(f"vits use time:{use_time}")
         return audio, audio.shape[-1]
 
     def clear_empty(self):
@@ -258,7 +258,7 @@ class Svc(object):
         lg_size_c_l = (lg_size-lg_size_r)//2
         lg_size_c_r = lg_size-lg_size_r-lg_size_c_l
         lg = np.linspace(0,1,lg_size_r) if lg_size!=0 else 0
-        
+
         audio = []
         for (slice_tag, data) in audio_data:
             print(f'#=====segment start, {round(len(data) / audio_sr, 3)}s======')
@@ -269,10 +269,7 @@ class Svc(object):
                 _audio = np.zeros(length)
                 audio.extend(list(pad_array(_audio, length)))
                 continue
-            if per_size != 0:
-                datas = split_list_by_n(data, per_size,lg_size)
-            else:
-                datas = [data]
+            datas = split_list_by_n(data, per_size,lg_size) if per_size != 0 else [data]
             for k,dat in enumerate(datas):
                 per_length = int(np.ceil(len(dat) / audio_sr * self.target_sample)) if clip_seconds!=0 else length
                 if clip_seconds!=0: print(f'###=====segment clip start, {round(len(dat) / audio_sr, 3)}s======')
@@ -296,9 +293,13 @@ class Svc(object):
                 _audio = pad_array(_audio, per_length)
                 if lg_size!=0 and k!=0:
                     lg1 = audio[-(lg_size_r+lg_size_c_r):-lg_size_c_r] if lgr_num != 1 else audio[-lg_size:]
-                    lg2 = _audio[lg_size_c_l:lg_size_c_l+lg_size_r]  if lgr_num != 1 else _audio[0:lg_size]
+                    lg2 = (
+                        _audio[lg_size_c_l : lg_size_c_l + lg_size_r]
+                        if lgr_num != 1
+                        else _audio[:lg_size]
+                    )
                     lg_pre = lg1*(1-lg)+lg2*lg
-                    audio = audio[0:-(lg_size_r+lg_size_c_r)] if lgr_num != 1 else audio[0:-lg_size]
+                    audio = audio[:-(lg_size_r+lg_size_c_r)] if lgr_num != 1 else audio[:-lg_size]
                     audio.extend(lg_pre)
                     _audio = _audio[lg_size_c_l+lg_size_r:] if lgr_num != 1 else _audio[lg_size:]
                 audio.extend(list(_audio))
